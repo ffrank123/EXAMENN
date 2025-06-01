@@ -1,32 +1,37 @@
 pipeline {
     agent {
         docker {
-            image 'php:8.2-cli'  // Imagen oficial con PHP 8.2
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
+            image 'php:8.2-cli'
+            args  '-v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
 
     environment {
-        SONARQUBE_ENV = 'sonarqube'
-        PROJECT_DIR = 'backend_mejoras'
-        DB_HOST = 'mysql'  // Servicio de DB (necesitarás docker-compose)
+        SONARQUBE_ENV    = 'sonarqube'
+        PROJECT_DIR      = 'backend_mejoras'
+        DB_HOST          = 'mysql'
     }
 
     stages {
-        stage('Clonar repositorio') {
+
+        /* 1) Clone  ── con PAT embebido (INSEGURO) */
+        stage('Clone') {
             steps {
-                git branch: 'main',  // Usando tu rama
-                    credentialsId: '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',  // Verifica que este ID existe
-                    url: 'https://github.com/ffrank123/EXAMENN.git'
+                timeout(time: 2, unit: 'MINUTES') {
+                    git branch: 'main',
+                        credentialsId: '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',
+                        url: 'https://github.com/ffrank123/EXAMENN.git'
+                }
             }
         }
 
-        stage('Instalar dependencias') {
+        /* 2) Install */
+        stage('Install') {
             steps {
                 dir("${PROJECT_DIR}") {
-                    // Instalar Composer y extensiones PHP
                     sh '''
-                        apt-get update && apt-get install -y unzip libzip-dev
+                        apt-get update -qq
+                        apt-get install -y unzip libzip-dev > /dev/null
                         curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
                         docker-php-ext-install zip pdo_mysql
                         composer install --no-interaction --prefer-dist
@@ -37,49 +42,56 @@ pipeline {
             }
         }
 
-        stage('Base de datos') {
+        /* 3) Test */
+        stage('Test') {
             steps {
                 dir("${PROJECT_DIR}") {
-                    sh 'php artisan migrate --seed --force'
+                    sh '''
+                        php artisan migrate --seed --force
+                        php artisan test \
+                          --log-junit storage/test-results.xml \
+                          --coverage-clover storage/coverage/clover.xml
+                    '''
                 }
             }
         }
 
-        stage('Pruebas') {
+        /* 4) Sonar */
+        stage('Sonar') {
             steps {
                 dir("${PROJECT_DIR}") {
-                    sh 'php artisan test --testsuite=Feature --log-junit storage/test-results.xml --coverage-clover storage/coverage/clover.xml'
-                }
-            }
-        }
-
-        stage('Análisis SonarQube') {
-            steps {
-                dir("${PROJECT_DIR}") {
-                    script {
-                        // Descargar sonar-scanner 5.0+
+                    sh '''
+                        curl -sL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip -o /tmp/ss.zip
+                        unzip -qq /tmp/ss.zip -d /opt
+                        ln -sf /opt/sonar-scanner-*/bin/sonar-scanner /usr/local/bin/sonar-scanner
+                    '''
+                    withSonarQubeEnv("${SONARQUBE_ENV}") {
                         sh '''
-                            curl -o /tmp/sonar-scanner.zip -L https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
-                            unzip /tmp/sonar-scanner.zip -d /opt
-                            ln -s /opt/sonar-scanner-*/bin/sonar-scanner /usr/local/bin/sonar-scanner
+                            sonar-scanner \
+                              -Dsonar.projectKey=turismo-capachica \
+                              -Dsonar.sources=app \
+                              -Dsonar.tests=tests \
+                              -Dsonar.php.coverage.reportPaths=storage/coverage/clover.xml
                         '''
-                        withSonarQubeEnv("${SONARQUBE_ENV}") {
-                        sh 'sonar-scanner -Dsonar.projectKey=turismo-capachica -Dsonar.php.coverage.reportPaths=storage/coverage/clover.xml'
-                        }
                     }
                 }
             }
         }
-    }
 
-    post {
-        failure {
-            slackSend channel: '#devops',
-                     message: "❌ Pipeline Fallido: ${env.JOB_NAME} (${env.BUILD_URL})"
+        /* 5) Quality Gate */
+        stage('Quality gate') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
         }
-        success {
-            slackSend channel: '#devops',
-                     message: "✅ Pipeline Exitoso: ${env.JOB_NAME} (${env.BUILD_URL})"
+
+        /* 6) Deploy (simulado) */
+        stage('Deploy') {
+            steps {
+                echo '🚀  Despliegue simulado'
+            }
         }
     }
 }
