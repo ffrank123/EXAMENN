@@ -21,17 +21,14 @@ pipeline {
     /* ───────────────────────────────
        STAGES PRINCIPALES
     ─────────────────────────────── */
-    stages {
-
-        /* 1️⃣  Clone (PAT en URL – INSEGURO) */
-        stage('Clone') {
-            steps {
-                timeout(time: 2, unit: 'MINUTES') {
-                    git branch: 'main',
-                        url: 'https://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@github.com/ffrank123/EXAMENN.git'
-                }
-            }
+   stage('Clone') {
+    steps {
+        timeout(time: 2, unit: 'MINUTES') {
+            git branch: 'main',
+                url: 'https://x-access-token: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@github.com/ffrank123/EXAMENN.git'
         }
+    }
+}
 
         /* 2️⃣  Install dependencias con Composer */
         stage('Install') {
