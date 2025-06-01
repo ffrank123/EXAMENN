@@ -13,7 +13,7 @@ pipeline {
        2. VARIABLES GLOBALES
     ─────────────────────────────────────────────── */
     environment {
-        GIT_CREDENTIAL_ID = 'github-token-frank'  // ID de la credencial
+        GIT_CREDENTIAL_ID = 'github-token-franks'  // ID de la credencial
         SONARQUBE_ENV     = 'sonarqube'           // Nombre configurado en Jenkins
         PROJECT_DIR       = 'backend_mejoras'     // Carpeta de tu proyecto
         DB_HOST           = 'mysql'               // Host de la BD (si la usas)
