@@ -2,11 +2,9 @@ version: '3.8'
 
 services:
   jenkins:
-    build:                    # ← en lugar de "image:"
-      context: .
-      dockerfile: Dockerfile-jenkins-php
+    build: .                      # usa el Dockerfile de arriba
     container_name: jenkins
-    user: root                # para instalar plugins desde la UI si quieres
+    user: root                    # Jenkins luego corre como 'jenkins'
     ports:
       - "9080:8080"
     volumes:
@@ -14,8 +12,9 @@ services:
     networks:
       - backend
 
-  sonar:                      # (ejemplo, si ya existe)
+  sonar:
     image: sonarqube:lts
+    container_name: sonar
     ports:
       - "9000:9000"
     networks:
