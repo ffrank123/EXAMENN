@@ -1,5 +1,7 @@
 pipeline {
-    /*  Contenedor PHP 8.2  */
+    /* ───────────────────────────────────────────────
+       1. AGENTE DOCKER CON PHP 8.2 (soporta Docker-in-Docker)
+    ─────────────────────────────────────────────── */
     agent {
         docker {
             image 'php:8.2-cli'
@@ -7,25 +9,33 @@ pipeline {
         }
     }
 
+    /* ───────────────────────────────────────────────
+       2. VARIABLES GLOBALES
+    ─────────────────────────────────────────────── */
     environment {
-        SONARQUBE_ENV = 'sonarqube'     // nombre del server Sonar en Jenkins
-        PROJECT_DIR   = 'backend_mejoras'
-        DB_HOST       = 'mysql'
+        GIT_CREDENTIAL_ID = 'github-token-frank'  // ID de la credencial
+        SONARQUBE_ENV     = 'sonarqube'           // Nombre configurado en Jenkins
+        PROJECT_DIR       = 'backend_mejoras'     // Carpeta de tu proyecto
+        DB_HOST           = 'mysql'               // Host de la BD (si la usas)
     }
 
+    /* ───────────────────────────────────────────────
+       3. STAGES
+    ─────────────────────────────────────────────── */
     stages {
 
-        /* 1️⃣  Clone (PAT embebido en la URL) */
+        /* 3.1 Clone */
         stage('Clone') {
             steps {
                 timeout(time: 2, unit: 'MINUTES') {
                     git branch: 'main',
-                        url: 'https://x-access-token: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@github.com/ffrank123/EXAMENN.git'
+                        credentialsId: env.GIT_CREDENTIAL_ID,
+                        url: 'https://github.com/ffrank123/EXAMENN.git'
                 }
             }
         }
 
-        /* 2️⃣  Install dependencias */
+        /* 3.2 Install */
         stage('Install') {
             steps {
                 dir("${PROJECT_DIR}") {
@@ -42,7 +52,7 @@ pipeline {
             }
         }
 
-        /* 3️⃣  Migrate + Tests */
+        /* 3.3 Test */
         stage('Test') {
             steps {
                 dir("${PROJECT_DIR}") {
@@ -56,7 +66,7 @@ pipeline {
             }
         }
 
-        /* 4️⃣  SonarQube */
+        /* 3.4 Sonar */
         stage('Sonar') {
             steps {
                 dir("${PROJECT_DIR}") {
@@ -78,7 +88,7 @@ pipeline {
             }
         }
 
-        /* 5️⃣  Quality Gate */
+        /* 3.5 Quality Gate */
         stage('Quality gate') {
             steps {
                 timeout(time: 2, unit: 'MINUTES') {
@@ -87,7 +97,7 @@ pipeline {
             }
         }
 
-        /* 6️⃣  Deploy simulado */
+        /* 3.6 Deploy (simulado) */
         stage('Deploy') {
             steps {
                 echo '🚀  Despliegue simulado'
