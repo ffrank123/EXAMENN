@@ -1,10 +1,10 @@
-version: '3.8'
-
 services:
   jenkins:
-    build: .                      # usa el Dockerfile de arriba
+    build:
+      context: .
+      dockerfile: Dockerfile-jenkins-php    # ← usa la imagen de arriba
     container_name: jenkins
-    user: root                    # Jenkins luego corre como 'jenkins'
+    user: root                               # Jenkins seguirá corriendo como ‘jenkins’
     ports:
       - "9080:8080"
     volumes:
@@ -22,4 +22,5 @@ services:
 
 networks:
   backend:
-    name: network_jenkins
+    external: true
+    name: network_jenkins                    # ← la misma red que ya tienes
