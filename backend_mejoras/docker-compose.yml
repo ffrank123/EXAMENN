@@ -2,12 +2,22 @@ version: '3.8'
 
 services:
   jenkins:
+    build:                    # ← en lugar de "image:"
+      context: .
+      dockerfile: Dockerfile-jenkins-php
     container_name: jenkins
-    image: jenkins/jenkins:lts-jdk17
-    volumes:
-      - ./jenkins_home:/var/jenkins_home
+    user: root                # para instalar plugins desde la UI si quieres
     ports:
       - "9080:8080"
+    volumes:
+      - ./jenkins_home:/var/jenkins_home
+    networks:
+      - backend
+
+  sonar:                      # (ejemplo, si ya existe)
+    image: sonarqube:lts
+    ports:
+      - "9000:9000"
     networks:
       - backend
 
