@@ -2,15 +2,12 @@ version: '3.8'
 
 services:
   jenkins:
-    image: jenkins/jenkins:lts-jdk17
     container_name: jenkins
-    user: root                    # permite instalar paquetes y usar el socket
-    privileged: true              # acceso completo al daemon (o usa group add)
-    ports:
-      - "9080:8080"
+    image: jenkins/jenkins:lts-jdk17
     volumes:
       - ./jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock  # <-- socket del host
+    ports:
+      - "9080:8080"
     networks:
       - backend
 
