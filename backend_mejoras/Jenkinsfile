@@ -1,13 +1,59 @@
 pipeline {
-    agent any                                  // usamos el propio nodo Jenkins
+    agent any                         // usamos el mismo nodo Jenkins
 
     environment {
-        SONARQUBE_ENV = 'sonarqube'            // nombre del server que creaste en “Manage Jenkins → Configure SonarQube Servers”
+        SONARQUBE_ENV = 'sonarqube'   // nombre que diste en “Configure SonarQube”
         PROJECT_DIR   = 'backend_mejoras'
+        PATH          = "/usr/local/bin:/usr/bin:/bin"   // nos aseguramos
     }
 
     stages {
 
+        /* 0️⃣  Bootstrap: PHP 8.2 + extensiones + Composer + sonar-scanner */
+        stage('Bootstrap tools (si faltan)') {
+            steps {
+                sh '''
+                   set -e
+
+                   # ---- PHP 8.2 y extensiones -------------------------------------------------
+                   if ! php -v 2>/dev/null | grep -q 8.2; then
+                       echo "Instalando PHP 8.2…"
+                       apt-get update -qq
+                       apt-get install -y --no-install-recommends \
+                           lsb-release ca-certificates wget gnupg
+                       wget -qO- https://packages.sury.org/php/apt.gpg | \
+                           gpg --dearmor -o /usr/share/keyrings/php.gpg
+                       echo "deb [signed-by=/usr/share/keyrings/php.gpg] \
+                           https://packages.sury.org/php $(lsb_release -sc) main" \
+                           > /etc/apt/sources.list.d/php.list
+                       apt-get update -qq
+                       apt-get install -y --no-install-recommends \
+                           php8.2-cli php8.2-mysql php8.2-zip unzip curl git
+                   fi
+
+                   # ---- Composer ---------------------------------------------------------------
+                   if ! command -v composer >/dev/null; then
+                       echo "Instalando Composer…"
+                       curl -sS https://getcomposer.org/installer | php \
+                           -- --install-dir=/usr/local/bin --filename=composer
+                   fi
+
+                   # ---- sonar-scanner ----------------------------------------------------------
+                   if ! command -v sonar-scanner >/dev/null; then
+                       echo "Instalando sonar-scanner…"
+                       curl -sL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/\
+sonar-scanner-cli-5.0.1.3006-linux.zip -o /tmp/ss.zip
+                       unzip -qq /tmp/ss.zip -d /opt
+                       ln -s /opt/sonar-scanner-*/bin/sonar-scanner /usr/local/bin/sonar-scanner
+                   fi
+
+                   composer --version
+                   php -v | head -n1
+                '''
+            }
+        }
+
+        /* 1️⃣  Checkout */
         stage('Checkout') {
             steps {
                 git branch: 'main',
@@ -16,57 +62,58 @@ pipeline {
             }
         }
 
+        /* 2️⃣  Instalar dependencias */
         stage('Instalar dependencias') {
             steps {
                 dir("${PROJECT_DIR}") {
                     sh '''
-                        composer install --no-interaction --prefer-dist
-                        cp .env.example .env       # cambia si usas otro .env
-                        php artisan key:generate
+                      composer install --no-interaction --prefer-dist
+                      [ -f .env ] || cp .env.example .env
+                      php artisan key:generate --ansi
                     '''
                 }
             }
         }
 
+        /* 3️⃣  Pruebas */
         stage('Pruebas') {
             steps {
                 dir("${PROJECT_DIR}") {
                     sh '''
-                        php artisan migrate --seed --force
-                        php artisan test \
-                            --log-junit storage/test-results.xml \
-                            --coverage-clover storage/coverage/clover.xml
+                      php artisan migrate --seed --force
+                      php artisan test \
+                        --log-junit storage/test-results.xml \
+                        --coverage-clover storage/coverage/clover.xml
                     '''
                 }
             }
         }
 
+        /* 4️⃣  Análisis SonarQube */
         stage('SonarQube') {
             steps {
                 dir("${PROJECT_DIR}") {
                     withSonarQubeEnv("${SONARQUBE_ENV}") {
                         sh '''
-                            sonar-scanner \
-                              -Dsonar.projectKey=turismo-capachica \
-                              -Dsonar.sources=app \
-                              -Dsonar.tests=tests \
-                              -Dsonar.php.coverage.reportPaths=storage/coverage/clover.xml
+                          sonar-scanner \
+                            -Dsonar.projectKey=turismo-capachica \
+                            -Dsonar.sources=app \
+                            -Dsonar.tests=tests \
+                            -Dsonar.php.coverage.reportPaths=storage/coverage/clover.xml
                         '''
                     }
                 }
             }
         }
 
+        /* 5️⃣  Quality Gate */
         stage('Quality Gate') {
-            steps {
-                waitForQualityGate abortPipeline: true
-            }
+            steps { waitForQualityGate abortPipeline: true }
         }
 
+        /* 6️⃣  Deploy */
         stage('Deploy') {
-            steps {
-                echo '🚀  Despliegue simulado (todo OK)'
-            }
+            steps { echo '🚀  Despliegue simulado (todo OK)' }
         }
     }
 }
