@@ -1,7 +1,5 @@
 pipeline {
-    /* ───────────────────────────────
-       CONTENEDOR PHP 8.2 (con Docker-in-Docker)
-    ─────────────────────────────── */
+    /*  Contenedor PHP 8.2  */
     agent {
         docker {
             image 'php:8.2-cli'
@@ -9,28 +7,25 @@ pipeline {
         }
     }
 
-    /* ───────────────────────────────
-       VARIABLES DE ENTORNO
-    ─────────────────────────────── */
     environment {
-        SONARQUBE_ENV = 'sonarqube'     // nombre configurado en Jenkins
+        SONARQUBE_ENV = 'sonarqube'     // nombre del server Sonar en Jenkins
         PROJECT_DIR   = 'backend_mejoras'
-        DB_HOST       = 'mysql'         // opcional para tus migraciones
+        DB_HOST       = 'mysql'
     }
 
-    /* ───────────────────────────────
-       STAGES PRINCIPALES
-    ─────────────────────────────── */
-   stage('Clone') {
-    steps {
-        timeout(time: 2, unit: 'MINUTES') {
-            git branch: 'main',
-                url: 'https://x-access-token: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@github.com/ffrank123/EXAMENN.git'
+    stages {
+
+        /* 1️⃣  Clone (PAT embebido en la URL) */
+        stage('Clone') {
+            steps {
+                timeout(time: 2, unit: 'MINUTES') {
+                    git branch: 'main',
+                        url: 'https://x-access-token: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@github.com/ffrank123/EXAMENN.git'
+                }
+            }
         }
-    }
-}
 
-        /* 2️⃣  Install dependencias con Composer */
+        /* 2️⃣  Install dependencias */
         stage('Install') {
             steps {
                 dir("${PROJECT_DIR}") {
@@ -47,7 +42,7 @@ pipeline {
             }
         }
 
-        /* 3️⃣  Migrations + Tests */
+        /* 3️⃣  Migrate + Tests */
         stage('Test') {
             steps {
                 dir("${PROJECT_DIR}") {
@@ -61,7 +56,7 @@ pipeline {
             }
         }
 
-        /* 4️⃣  Análisis SonarQube */
+        /* 4️⃣  SonarQube */
         stage('Sonar') {
             steps {
                 dir("${PROJECT_DIR}") {
@@ -92,7 +87,7 @@ pipeline {
             }
         }
 
-        /* 6️⃣  Deploy (simulado) */
+        /* 6️⃣  Deploy simulado */
         stage('Deploy') {
             steps {
                 echo '🚀  Despliegue simulado'
