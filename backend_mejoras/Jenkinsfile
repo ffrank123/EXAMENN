@@ -7,15 +7,14 @@ pipeline {
         PATH          = "/usr/local/bin:/usr/bin:/bin"   // nos aseguramos
     }
 
-    stages {
-
-        /* 0️⃣  Bootstrap: PHP 8.2 + extensiones + Composer + sonar-scanner */
-        stage('Bootstrap tools (si faltan)') {
+            stage('Bootstrap tools (si faltan)') {
             steps {
                 sh '''
                    set -e
 
-                   # ---- PHP 8.2 y extensiones -------------------------------------------------
+                   # -------------------------------------------------------------------------
+                   # 1) PHP 8.2 CLI + TODAS las extensiones que necesita un Laravel típico
+                   # -------------------------------------------------------------------------
                    if ! php -v 2>/dev/null | grep -q 8.2; then
                        echo "Instalando PHP 8.2…"
                        apt-get update -qq
@@ -27,31 +26,55 @@ pipeline {
                            https://packages.sury.org/php $(lsb_release -sc) main" \
                            > /etc/apt/sources.list.d/php.list
                        apt-get update -qq
-                       apt-get install -y --no-install-recommends \
-                           php8.2-cli php8.2-mysql php8.2-zip unzip curl git
                    fi
 
-                   # ---- Composer ---------------------------------------------------------------
+                   # Lista de módulos requeridos por Composer
+                   REQ_PKGS="
+                     php8.2-cli
+                     php8.2-zip
+                     php8.2-mysql
+                     php8.2-xml      # dom + xml
+                     php8.2-curl
+                     php8.2-mbstring # por si lo pide más adelante
+                   "
+
+                   # instala sólo los que falten
+                   for P in $REQ_PKGS; do
+                       dpkg -s "$P" >/dev/null 2>&1 || NEED_PKGS="$NEED_PKGS $P"
+                   done
+                   if [ -n "$NEED_PKGS" ]; then
+                       echo "Instalando extensiones PHP faltantes:$NEED_PKGS"
+                       apt-get install -y --no-install-recommends $NEED_PKGS
+                   fi
+
+                   # -------------------------------------------------------------------------
+                   # 2) Composer
+                   # -------------------------------------------------------------------------
                    if ! command -v composer >/dev/null; then
                        echo "Instalando Composer…"
                        curl -sS https://getcomposer.org/installer | php \
                            -- --install-dir=/usr/local/bin --filename=composer
                    fi
 
-                   # ---- sonar-scanner ----------------------------------------------------------
+                   # -------------------------------------------------------------------------
+                   # 3) sonar-scanner
+                   # -------------------------------------------------------------------------
                    if ! command -v sonar-scanner >/dev/null; then
                        echo "Instalando sonar-scanner…"
                        curl -sL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/\
 sonar-scanner-cli-5.0.1.3006-linux.zip -o /tmp/ss.zip
                        unzip -qq /tmp/ss.zip -d /opt
-                       ln -s /opt/sonar-scanner-*/bin/sonar-scanner /usr/local/bin/sonar-scanner
+                       ln -sf /opt/sonar-scanner-*/bin/sonar-scanner /usr/local/bin/sonar-scanner
                    fi
 
+                   echo "------------------------------"
+                   php -m | grep -E 'curl|dom|xml'   # comprobación rápida
                    composer --version
-                   php -v | head -n1
+                   echo "Bootstrap finalizado ✔"
                 '''
             }
         }
+
 
         /* 1️⃣  Checkout */
         stage('Checkout') {
