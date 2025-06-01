@@ -1,4 +1,7 @@
 pipeline {
+    /* ───────────────────────────────
+       CONTENEDOR PHP 8.2 (con Docker-in-Docker)
+    ─────────────────────────────── */
     agent {
         docker {
             image 'php:8.2-cli'
@@ -6,26 +9,31 @@ pipeline {
         }
     }
 
+    /* ───────────────────────────────
+       VARIABLES DE ENTORNO
+    ─────────────────────────────── */
     environment {
-        SONARQUBE_ENV    = 'sonarqube'
-        PROJECT_DIR      = 'backend_mejoras'
-        DB_HOST          = 'mysql'
+        SONARQUBE_ENV = 'sonarqube'     // nombre configurado en Jenkins
+        PROJECT_DIR   = 'backend_mejoras'
+        DB_HOST       = 'mysql'         // opcional para tus migraciones
     }
 
+    /* ───────────────────────────────
+       STAGES PRINCIPALES
+    ─────────────────────────────── */
     stages {
 
-        /* 1) Clone  ── con PAT embebido (INSEGURO) */
+        /* 1️⃣  Clone (PAT en URL – INSEGURO) */
         stage('Clone') {
             steps {
                 timeout(time: 2, unit: 'MINUTES') {
                     git branch: 'main',
-                        credentialsId: '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',
-                        url: 'https://github.com/ffrank123/EXAMENN.git'
+                        url: 'https://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@github.com/ffrank123/EXAMENN.git'
                 }
             }
         }
 
-        /* 2) Install */
+        /* 2️⃣  Install dependencias con Composer */
         stage('Install') {
             steps {
                 dir("${PROJECT_DIR}") {
@@ -42,7 +50,7 @@ pipeline {
             }
         }
 
-        /* 3) Test */
+        /* 3️⃣  Migrations + Tests */
         stage('Test') {
             steps {
                 dir("${PROJECT_DIR}") {
@@ -56,7 +64,7 @@ pipeline {
             }
         }
 
-        /* 4) Sonar */
+        /* 4️⃣  Análisis SonarQube */
         stage('Sonar') {
             steps {
                 dir("${PROJECT_DIR}") {
@@ -78,7 +86,7 @@ pipeline {
             }
         }
 
-        /* 5) Quality Gate */
+        /* 5️⃣  Quality Gate */
         stage('Quality gate') {
             steps {
                 timeout(time: 2, unit: 'MINUTES') {
@@ -87,7 +95,7 @@ pipeline {
             }
         }
 
-        /* 6) Deploy (simulado) */
+        /* 6️⃣  Deploy (simulado) */
         stage('Deploy') {
             steps {
                 echo '🚀  Despliegue simulado'
