@@ -1,73 +1,72 @@
 pipeline {
-    agent any                       // se ejecuta en el contenedor Jenkins
+    agent any                                  // usamos el propio nodo Jenkins
 
     environment {
-        SONARQUBE_ENV = 'sonarqube' // nombre del server Sonar configurado en Jenkins
+        SONARQUBE_ENV = 'sonarqube'            // nombre del server que creaste en “Manage Jenkins → Configure SonarQube Servers”
         PROJECT_DIR   = 'backend_mejoras'
     }
 
     stages {
 
-        /* 1️⃣ Clone   (PAT embebido o credencial Jenkins) */
-        stage('Clonar repositorio') {
+        stage('Checkout') {
             steps {
                 git branch: 'main',
-                     url: 'https://x-access-token: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@github.com/ffrank123/EXAMENN.git'
+                    credentialsId: 'github-pat',
+                    url: 'https://github.com/ffrank123/EXAMENN.git'
             }
         }
 
-        /* 2️⃣ Composer + artisan key */
         stage('Instalar dependencias') {
             steps {
                 dir("${PROJECT_DIR}") {
                     sh '''
                         composer install --no-interaction --prefer-dist
-                        cp .env.ci .env
+                        cp .env.example .env       # cambia si usas otro .env
                         php artisan key:generate
                     '''
                 }
             }
         }
 
-        /* 3️⃣ Migraciones & Test */
         stage('Pruebas') {
             steps {
                 dir("${PROJECT_DIR}") {
                     sh '''
                         php artisan migrate --seed --force
                         php artisan test \
-                          --log-junit storage/test-results.xml \
-                          --coverage-clover storage/coverage/clover.xml
+                            --log-junit storage/test-results.xml \
+                            --coverage-clover storage/coverage/clover.xml
                     '''
                 }
             }
         }
 
-        /* 4️⃣ SonarQube */
-        stage('Análisis SonarQube') {
+        stage('SonarQube') {
             steps {
                 dir("${PROJECT_DIR}") {
                     withSonarQubeEnv("${SONARQUBE_ENV}") {
                         sh '''
-                          sonar-scanner \
-                            -Dsonar.projectKey=turismo-capachica \
-                            -Dsonar.sources=app \
-                            -Dsonar.tests=tests \
-                            -Dsonar.php.coverage.reportPaths=storage/coverage/clover.xml
+                            sonar-scanner \
+                              -Dsonar.projectKey=turismo-capachica \
+                              -Dsonar.sources=app \
+                              -Dsonar.tests=tests \
+                              -Dsonar.php.coverage.reportPaths=storage/coverage/clover.xml
                         '''
                     }
                 }
             }
         }
 
-        /* 5️⃣ Quality Gate */
         stage('Quality Gate') {
-            steps { waitForQualityGate abortPipeline: true }
+            steps {
+                waitForQualityGate abortPipeline: true
+            }
         }
 
-        /* 6️⃣ Deploy simulado */
         stage('Deploy') {
-            steps { echo '🚀 Despliegue OK (simulado)' }
+            steps {
+                echo '🚀  Despliegue simulado (todo OK)'
+            }
         }
     }
 }
